@@ -12,8 +12,10 @@ app.use(bodyParser.json());
 const uri =
   'mongodb+srv://weerapan:ttsoftware@ttsoftware.gxdgbyb.mongodb.net/ttsoftware?retryWrites=true&w=majority';
 
-mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true })
-.then(()=> console.log(`connect to mongodb ok`)).catch((err) => console.log(err));
+mongoose
+  .connect(uri, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log(`connect to mongodb ok`))
+  .catch((err) => console.log(err));
 
 app.get('/', (req, res) => {
   UserModel.find({})
@@ -30,39 +32,60 @@ app.post('/add', async (req, res) => {
   const email = req.body.email;
 
   console.log(`
-    hn : ${hn} \n
-    firstname : ${firstname} \n
-    lastname : ${lastname} \n
-    phone : ${phone} \n
-    email : ${email} \n
-     `)
-
-  const newUser = new UserModel({
-    hn,
-    firstname,
-    lastname,
-    phone,
-    email,
-  });
+    hn : ${hn} 
+    firstname : ${firstname} 
+    lastname : ${lastname} 
+    phone : ${phone} 
+    email : ${email} 
+  `);
 
   try {
-    const savedUser = await newUser.save();
-    res.status(200).json(savedUser);
-    console.log(savedUser);
+    if (hn === "" || firstname === "" || lastname === "" || phone === "" || email === ""){
+      return res.status(400).json({message:"Bad Input"})
+    }
+
+    const hnUser = await UserModel.find({ hn: hn });
+    if (hnUser.length === 0) {
+      const newUser = new UserModel({
+        hn,
+        firstname,
+        lastname,
+        phone,
+        email,
+      });
+
+      const savedUser = await newUser.save();
+      res.status(200).json(savedUser);
+      console.log(`Add Complete!!
+      ${savedUser}`);
+    } else {
+      console.log(hnUser);
+      return res.status(409).json({ message: 'HN ที่ใส่ซ้ำกับท่านอื่น โปรดเปลี่ยน' });
+    }
   } catch (error) {
-    res.status(500).json({ message: 'Error saving user', error });
+    if (error.code === 11000 && error.keyPattern.email) {
+      
+      res.status(409).json({ message: 'Email ถูกใช้ไปแล้ว' });
+      console.log('Duplicate email error:', error);
+    } else {
+      
+      res.status(500).json({ message: 'Error saving user', error });
+      console.error('Error saving user:', error);
+    }
   }
 });
 
 app.put('/update', async (req, res) => {
   console.log('User update');
-  
+
   const hn = req.body.hn;
   const updatedData = req.body;
-  console.log('request body is :',req.body)
+  console.log('request body is :', req.body);
 
   try {
-    const updatedUser = await UserModel.findOneAndUpdate( {hn} , updatedData, { new: true });
+    const updatedUser = await UserModel.findOneAndUpdate({ hn }, updatedData, {
+      new: true,
+    });
     res.json(updatedUser);
   } catch (error) {
     res.status(500).json({ error: 'Could not update user.' });
@@ -70,11 +93,10 @@ app.put('/update', async (req, res) => {
 });
 
 app.delete('/delete/:hn', async (req, res) => {
-  
   console.log('User delete');
   const hn = req.params.hn;
 
-  console.log(hn)
+  console.log(hn);
 
   try {
     const deletedUser = await UserModel.findOneAndDelete({ hn });
@@ -87,9 +109,7 @@ app.delete('/delete/:hn', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: 'Could not delete user.' });
   }
-
 });
-
 
 const port = 4000;
 app.listen(port, () => {
